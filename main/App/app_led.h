@@ -3,7 +3,8 @@
 
 #include "drv_led.h"
 
+
 void App_Led_Init(void);
-void App_Led_Set(LedState_e state);
+void App_Led_Set(Led_Color_e color, Led_State_e state);
 
 #endif

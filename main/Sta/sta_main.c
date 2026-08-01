@@ -2,11 +2,31 @@
 #include "Rtos_Queue.h"
 #include "Rtos_Task.h"
 #include "app_led.h"
+#include "app_beep.h"
 #include "app_xl9555.h"
+#include "app_key.h"
+#include "proj_cfg.h"
 #include "board.h"
-#include "esp_log.h"
+#include "driver/gpio.h"
 
 static const char *TAG = "Sta_MsgTask";
+volatile static bool sta_xl9555_int_flag = false;
+static volatile uint32_t sta_last_int_tick = 0;
+
+static void sta_i2c_int_handler(void *arg)
+{
+    //xl9555中断处理函数,仅配置为输入的port可进入
+    (void)arg;
+    // //ISR内消抖:距上次有效中断超过消抖时间才置位,抑制机械按键抖动产生的连续触发
+
+    sta_xl9555_int_flag = true;
+}
+
+static void sta_board_init(void)
+{
+    I2C_Interupt_Callback_Register(sta_i2c_int_handler);
+    I2C_Init();
+}
 
 // /* ==================== 消息处理任务 ==================== */
 // static QueueHandle_t g_msg_queue = NULL;
@@ -38,27 +58,51 @@ static const char *TAG = "Sta_MsgTask";
 //     }
 // }
 
+static void sta_init(void)
+{
+    #if defined(STA_XL9555_ENABLE) && (STA_XL9555_ENABLE == 1)
+        App_XL9555_Init();
+    #endif  
+
+    #if defined(STA_LED_ENABLE) && (STA_LED_ENABLE == 1)
+        App_Led_Init();
+    #endif 
+
+    #if defined(STA_BEEP_ENABLE) && (STA_BEEP_ENABLE == 1)
+        App_Beep_Init();
+    #endif 
+
+    #if defined(STA_KEY_ENABLE) && (STA_KEY_ENABLE == 1)
+        App_Key_Init();
+    #endif
+}
+
+static void Sta_main(void)
+{
+    if(sta_xl9555_int_flag)
+    {
+        sta_xl9555_int_flag = false;
+        uint8_t key0_val = App_XL9555_Get_Val(XL9555_KEY0);
+        uint8_t key1_val = App_XL9555_Get_Val(XL9555_KEY1);
+        if(key1_val == 0 || key0_val == 0)
+        {
+            ESP_LOGI(TAG, "Key1 pressed");
+        }
+        else
+        {
+            ESP_LOGI(TAG, "Key1 released");
+        }
+    }
+}
+
 static void Sta_Task(void *pvParameters)
 {
-    I2C_Init();
-    App_Led_Init();
-    App_XL9555_Init();
-    uint8_t val = 0xff;
-    App_XL9555_IO_Cfg(XL9555_DIR_OUT);
+    sta_board_init();
+    
+    sta_init();
     while (1) {
-        App_Led_Set(LED_ON);
-        App_XL9555_Set_Val(0);
-        val = App_XL9555_Get_Val();
-        ESP_LOGI(TAG, "vol = %d",val);
-
-        vTaskDelay(pdMS_TO_TICKS(500));
-
-        App_Led_Set(LED_OFF);
-        App_XL9555_Set_Val(1);
-        val = App_XL9555_Get_Val();
-        ESP_LOGI(TAG, "vol = %d",val);
-        
-        vTaskDelay(pdMS_TO_TICKS(500));
+        Sta_main();
+        vTaskDelay(pdMS_TO_TICKS(10));
     }
 }
 
