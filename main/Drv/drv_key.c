@@ -11,6 +11,51 @@ static Key_Timer_t keyTimer = {
 };
 
 static Key_Struct_t keyStruct[KEY_NUM];
+static Drv_Key_Event_Cbk keyEventcb = NULL;
+
+static void drv_key_scan_timer_start(void)
+{
+    if(keyTimer.keyStart != true)
+    {
+        keyTimer.keyStart = true;
+        xTimerStart(keyTimer.keyScanTimer,portMAX_DELAY);
+    }
+}
+
+static void drv_key_scan_timer_stop(void)
+{
+    if(keyTimer.keyStart == true)
+    {
+        keyTimer.keyStart = false;
+        xTimerStop(keyTimer.keyScanTimer,portMAX_DELAY);
+    }
+}
+
+static bool drv_key_all_idle(void)
+{
+    for (uint8_t i = 0; i < KEY_NUM; i++)
+    {
+        if (keyStruct[i].pressCount != 0 || keyStruct[i].clickCount != 0 ||
+            keyStruct[i].releaseCount != 0 || keyStruct[i].longPressed)
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+static void drv_key_struct_init(void)
+{
+    uint8_t i;
+    for (i = 0; i < KEY_NUM; i++)
+    {
+        keyStruct[i].clickCount = 0;
+        keyStruct[i].keyEvent = KEY_NONE_EVT;
+        keyStruct[i].longPressed = false;
+        keyStruct[i].pressCount = 0;
+        keyStruct[i].releaseCount = 0;
+    }
+}
 
 static void drv_key_int_handler(void *arg)
 {
@@ -31,7 +76,7 @@ static uint8_t drv_key_read(Key_Index_e idx)
 
 static void drv_key_scan(void)
 {
-    static Key_State_e keyEvtCheck;
+    static uint8_t needReportMask = 0;
     uint8_t i;
     for (i = 0; i < KEY_NUM; i++)
     {
@@ -43,6 +88,7 @@ static void drv_key_scan(void)
             if(keyStruct[i].pressCount >= KEY_LONG_PRESS_CNT && !keyStruct[i].longPressed)
             {
                 keyStruct[i].longPressed = true;
+                keyStruct[i].keyEvent = KEY_LONG_PRESS_EVT;
                 //触发长按
                 ESP_LOGI(TAG,"key%d longPress",i);
             }
@@ -55,6 +101,7 @@ static void drv_key_scan(void)
                 {
                     //触发长按释放
                     keyStruct[i].longPressed = false;
+                    keyStruct[i].keyEvent = KEY_LONG_RELEASE_EVT;
                     ESP_LOGI(TAG,"key%d longPress Release",i);
                 }
                 else
@@ -68,6 +115,7 @@ static void drv_key_scan(void)
             {
                 keyStruct[i].clickCount = 0;
                 keyStruct[i].releaseCount = 0;
+                keyStruct[i].keyEvent = KEY_DOUBLE_CLICK_EVT;
                 ESP_LOGI(TAG,"key%d double click",i);
             }
             else if(keyStruct[i].clickCount == 1)
@@ -77,10 +125,29 @@ static void drv_key_scan(void)
                 {
                     keyStruct[i].clickCount = 0;
                     keyStruct[i].releaseCount = 0;
+                    keyStruct[i].keyEvent = KEY_SINGLE_CLICK_EVT;
                     ESP_LOGI(TAG,"key%d single click",i);
                 }
             }
         }
+    }
+
+    for (i = 0; i < KEY_NUM; i++)
+    {
+        if (keyStruct[i].keyEvent != KEY_NONE_EVT)
+        {
+            if (keyEventcb != NULL)
+            {
+                keyEventcb((Key_Index_e)i, keyStruct[i].keyEvent);
+            }
+            keyStruct[i].keyEvent = KEY_NONE_EVT;   /* 上报后必须复位, 防重复 */
+        }
+    }
+
+    /* 扫描末尾: 若空闲则停表 */
+    if (drv_key_all_idle())
+    {
+        drv_key_scan_timer_stop();
     }
 }
 
@@ -111,14 +178,22 @@ void Drv_Key_Init(void)
     }
 
     keyTimer.keyScanTimer = xTimerCreate("key_timer",pdMS_TO_TICKS(KEY_SCAN_TIME),pdTRUE,(void *)0,key_scan_timer_cb);
+    drv_key_struct_init();
 }
 
-void Drv_Key_Scan(void)
+void Drv_Key_Scan_Start(void)
 {
-    if(keyTimer.keyStart != true)
+    drv_key_scan_timer_start();
+}
+
+void Drv_Key_Event_Callback_Register(Drv_Key_Event_Cbk cb)
+{
+    if(cb != NULL)
     {
-        keyTimer.keyStart = true;
-        xTimerStart(keyTimer.keyScanTimer,portMAX_DELAY);
+        if(keyEventcb == NULL)
+        {
+            keyEventcb = cb;
+        }
     }
 }
 

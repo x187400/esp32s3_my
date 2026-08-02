@@ -6,11 +6,8 @@
 /* ==================== 消息类型枚举 ==================== */
 
 typedef enum {
-    MSG_TYPE_NONE = 0,
-    MSG_TYPE_SENSOR,        // 传感器数据
-    MSG_TYPE_CMD,           // 控制命令
-    MSG_TYPE_EVENT,         // 事件通知
-    MSG_TYPE_COUNT
+    MSG_TYPE_KEY_EVENT,       //按键事件
+    MSG_TYPE_MAX_EVENT,
 } MsgType_t;
 
 /* ==================== 统一的数据承载结构体 ==================== */

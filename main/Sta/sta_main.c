@@ -29,34 +29,31 @@ static void sta_board_init(void)
 }
 
 // /* ==================== 消息处理任务 ==================== */
-// static QueueHandle_t g_msg_queue = NULL;
-// static void Sta_QueueTask(void *pvParameters)
-// {
-//     Msg_t msg;
-//     if (Rtos_Queue_Receive(g_msg_queue, &msg, portMAX_DELAY) == pdPASS) 
-//     {
-//         switch (msg.type) {
-//         case MSG_TYPE_SENSOR:
-//             ESP_LOGI(TAG, "Sensor: temp=%.1f, hum=%.1f, ts=%lu",
-//                         msg.data.fvalue1, msg.data.fvalue2, msg.data.timestamp);
-//             break;
+static const char *key_evt_str(int32_t evt)
+{
+    switch (evt)
+    {
+    case 1: return "single_click";
+    case 2: return "double_click";
+    case 3: return "long_press";
+    case 4: return "long_release";
+    default: return "none";
+    }
+}
 
-//         case MSG_TYPE_CMD:
-//             ESP_LOGI(TAG, "Cmd: id=%ld, param=%ld",
-//                         msg.data.ivalue1, msg.data.ivalue2);
-//             break;
+static void Sta_Msg_Task(Msg_t msg)
+{
+    switch (msg.type)
+    {
+    case MSG_TYPE_KEY_EVENT:
+        ESP_LOGI(TAG, "key=%ld, event=%s(%ld)",
+                 msg.data.ivalue1, key_evt_str(msg.data.ivalue2), msg.data.ivalue2);
+        break;
 
-//         case MSG_TYPE_EVENT:
-//             ESP_LOGI(TAG, "Event: id=%ld, data=%lu",
-//                         msg.data.ivalue1, msg.data.extra);
-//             break;
-
-//         default:
-//             ESP_LOGW(TAG, "Unknown msg type: %d", msg.type);
-//             break;
-//         }
-//     }
-// }
+    default:
+        break;
+    }
+}
 
 static void sta_init(void)
 {
@@ -102,6 +99,10 @@ static void Sta_main(void)
             {
                 staMainEvent = STA_KEY_EVENT;
             }
+            else
+            {
+                staMainEvent = STA_IDLE_EVENT;
+            }
             break;
 
 
@@ -123,6 +124,11 @@ static void Sta_Task(void *pvParameters)
     
     sta_init();
     while (1) {
+        Msg_t msg;
+        if (Rtos_Queue_Receive(&msg, pdMS_TO_TICKS(10)) == pdPASS) 
+        {
+            Sta_Msg_Task(msg);
+        }
         Sta_main();
         vTaskDelay(pdMS_TO_TICKS(10));
     }
@@ -130,8 +136,15 @@ static void Sta_Task(void *pvParameters)
 
 /* ==================== 初始化 ==================== */
 
-void Sta_MsgInit(void)
+void Sta_Msg_Init(void)
 {
+    BaseType_t ret = pdPASS;
+    ret = Rtos_Queue_Create(RTOS_QUEUE_LEN_SMALL, sizeof(Msg_t));
+    if (ret == pdFAIL)
+    {
+        ESP_LOGE(TAG, "msg queue create failed");
+        return;
+    }
     Rtos_Task_Create(Sta_Task, "msg_task",
                      RTOS_TASK_STACK_MID, NULL,
                      RTOS_TASK_PRIO_MID, NULL);

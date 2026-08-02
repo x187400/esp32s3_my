@@ -3,5 +3,5 @@
 
 void app_main(void)
 {
-    Sta_MsgInit();
+    Sta_Msg_Init();
 }

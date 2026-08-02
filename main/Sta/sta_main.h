@@ -7,6 +7,6 @@ typedef enum {
     STA_KEY_EVENT,
 }Sta_Main_Event_e;
 
-void Sta_MsgInit(void);
+void Sta_Msg_Init(void);
 
 #endif
