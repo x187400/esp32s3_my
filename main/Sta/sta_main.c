@@ -8,17 +8,17 @@
 #include "proj_cfg.h"
 #include "board.h"
 #include "driver/gpio.h"
+#include "sta_main.h"
 
 static const char *TAG = "Sta_MsgTask";
 volatile static bool sta_xl9555_int_flag = false;
-static volatile uint32_t sta_last_int_tick = 0;
+
+static Sta_Main_Event_e staMainEvent = STA_IDLE_EVENT;
 
 static void sta_i2c_int_handler(void *arg)
 {
     //xl9555中断处理函数,仅配置为输入的port可进入
     (void)arg;
-    // //ISR内消抖:距上次有效中断超过消抖时间才置位,抑制机械按键抖动产生的连续触发
-
     sta_xl9555_int_flag = true;
 }
 
@@ -79,19 +79,41 @@ static void sta_init(void)
 
 static void Sta_main(void)
 {
-    if(sta_xl9555_int_flag)
-    {
-        sta_xl9555_int_flag = false;
-        uint8_t key0_val = App_XL9555_Get_Val(XL9555_KEY0);
-        uint8_t key1_val = App_XL9555_Get_Val(XL9555_KEY1);
-        if(key1_val == 0 || key0_val == 0)
-        {
-            ESP_LOGI(TAG, "Key1 pressed");
-        }
-        else
-        {
-            ESP_LOGI(TAG, "Key1 released");
-        }
+    static bool stakeyInt = false;
+    switch (staMainEvent) {
+        case STA_IDLE_EVENT:
+            if(sta_xl9555_int_flag)
+            {
+                staMainEvent = STA_XL9555_INT_EVENT;
+                sta_xl9555_int_flag = false;
+            }
+
+            stakeyInt = App_Key_Int_Trigger_Check();
+            if(stakeyInt == true)
+            {
+                staMainEvent = STA_KEY_EVENT;
+            }
+            
+            break;
+
+        case STA_XL9555_INT_EVENT:
+            stakeyInt = App_XL9555_Key_Int_Trigger_Check();
+            if(stakeyInt == true)
+            {
+                staMainEvent = STA_KEY_EVENT;
+            }
+            break;
+
+
+        case STA_KEY_EVENT:
+            App_Key_Scan();
+            staMainEvent = STA_IDLE_EVENT;
+        break;
+
+        default:
+            ESP_LOGW(TAG, "Unknown event: %d", staMainEvent);
+            staMainEvent = STA_IDLE_EVENT;
+            break;
     }
 }
 
