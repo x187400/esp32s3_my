@@ -1,11 +1,12 @@
 #ifndef __DRV_KEY_H__
 #define __DRV_KEY_H__
 
-#define KEY_NUM             3
+#define KEY_NUM                 3
+#define KEY_MAX_EVENT_NUM       5
 
 #define KEY_SCAN_TIME           10      //扫描周期:10ms
-#define KEY_DOUBLE_CLICK_CNT    15      //双击时间窗口 KEY_SCAN_TIME * KEY_DOUBLE_CLICK_CNT = 200ms
-#define KEY_LONG_PRESS_CNT      60     //长按阈值 KEY_SCAN_TIME * KEY_LONG_PRESS_CNT = 1s
+#define KEY_DOUBLE_CLICK_CNT    15      //双击时间窗口 KEY_SCAN_TIME * KEY_DOUBLE_CLICK_CNT = 150ms
+#define KEY_LONG_PRESS_CNT      60     //长按阈值 KEY_SCAN_TIME * KEY_LONG_PRESS_CNT = 600s
 
 #include "drv_xl9555.h"
 #include "freertos/FreeRTOS.h"

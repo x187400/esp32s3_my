@@ -28,16 +28,40 @@ static void sta_board_init(void)
     I2C_Init();
 }
 
-// /* ==================== 消息处理任务 ==================== */
-static const char *key_evt_str(int32_t evt)
+/* ==================== 按键事件触发 ==================== */
+static void key0_click_event(void) {}
+static void key0_double_click_event(void) {}
+static void key0_long_press_event(void) {App_Beep_Set(BEEP_ON);}
+static void key0_long_press_release_event(void) {App_Beep_Set(BEEP_OFF);}
+
+static void key1_click_event(void) {}
+static void key1_double_click_event(void) {}
+static void key1_long_press_event(void) {}
+static void key1_long_press_release_event(void) {}
+
+static void key2_click_event(void) {}
+static void key2_double_click_event(void) {}
+static void key2_long_press_event(void) {}
+static void key2_long_press_release_event(void) {}
+
+static const key_event_handle keyTable[KEY_NUM][KEY_MAX_EVENT_NUM] = 
 {
-    switch (evt)
+    /*             NONE          SINGLE              DOUBLE                     LONG_PRESS             LONG_PRESS_RELEASE     */
+    /* KEY0 */ {   NULL,    key0_click_event,   key0_double_click_event,   key0_long_press_event, key0_long_press_release_event },
+    /* KEY1 */ {   NULL,    key1_click_event,   key1_double_click_event,   key1_long_press_event, key1_long_press_release_event },
+    /* KEY2 */ {   NULL,    key2_click_event,   key2_double_click_event,   key2_long_press_event, key2_long_press_release_event },
+};
+
+/* ==================== 消息处理任务 ==================== */
+static void Sta_Key_Event(Key_Index_e idx,Key_Event_e evt)
+{
+    if (idx >= KEY_NUM || evt <= KEY_NONE_EVT || evt >= KEY_MAX_EVENT_NUM) {
+        return;
+    }
+    key_event_handle keyEvt = keyTable[idx][evt];
+    if (keyEvt != NULL) 
     {
-    case 1: return "single_click";
-    case 2: return "double_click";
-    case 3: return "long_press";
-    case 4: return "long_release";
-    default: return "none";
+        keyEvt();
     }
 }
 
@@ -46,8 +70,7 @@ static void Sta_Msg_Task(Msg_t msg)
     switch (msg.type)
     {
     case MSG_TYPE_KEY_EVENT:
-        ESP_LOGI(TAG, "key=%ld, event=%s(%ld)",
-                 msg.data.ivalue1, key_evt_str(msg.data.ivalue2), msg.data.ivalue2);
+        Sta_Key_Event((Key_Index_e)msg.data.ivalue1,(Key_Event_e)msg.data.ivalue2);
         break;
 
     default:
@@ -55,6 +78,7 @@ static void Sta_Msg_Task(Msg_t msg)
     }
 }
 
+/* ==================== 状态机初始化 ==================== */
 static void sta_init(void)
 {
     #if defined(STA_XL9555_ENABLE) && (STA_XL9555_ENABLE == 1)
@@ -74,6 +98,7 @@ static void sta_init(void)
     #endif
 }
 
+/* ==================== 状态机主任务 ==================== */
 static void Sta_main(void)
 {
     static bool stakeyInt = false;
@@ -118,6 +143,7 @@ static void Sta_main(void)
     }
 }
 
+/* ==================== 状态机rtos任务 ==================== */
 static void Sta_Task(void *pvParameters)
 {
     sta_board_init();
@@ -134,8 +160,7 @@ static void Sta_Task(void *pvParameters)
     }
 }
 
-/* ==================== 初始化 ==================== */
-
+/* ==================== rtos任务与消息队列创建 ==================== */
 void Sta_Msg_Init(void)
 {
     BaseType_t ret = pdPASS;

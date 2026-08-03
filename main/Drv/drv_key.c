@@ -76,7 +76,6 @@ static uint8_t drv_key_read(Key_Index_e idx)
 
 static void drv_key_scan(void)
 {
-    static uint8_t needReportMask = 0;
     uint8_t i;
     for (i = 0; i < KEY_NUM; i++)
     {
@@ -89,8 +88,6 @@ static void drv_key_scan(void)
             {
                 keyStruct[i].longPressed = true;
                 keyStruct[i].keyEvent = KEY_LONG_PRESS_EVT;
-                //触发长按
-                ESP_LOGI(TAG,"key%d longPress",i);
             }
         }
         else
@@ -102,7 +99,6 @@ static void drv_key_scan(void)
                     //触发长按释放
                     keyStruct[i].longPressed = false;
                     keyStruct[i].keyEvent = KEY_LONG_RELEASE_EVT;
-                    ESP_LOGI(TAG,"key%d longPress Release",i);
                 }
                 else
                 {
@@ -116,7 +112,6 @@ static void drv_key_scan(void)
                 keyStruct[i].clickCount = 0;
                 keyStruct[i].releaseCount = 0;
                 keyStruct[i].keyEvent = KEY_DOUBLE_CLICK_EVT;
-                ESP_LOGI(TAG,"key%d double click",i);
             }
             else if(keyStruct[i].clickCount == 1)
             {
@@ -126,7 +121,6 @@ static void drv_key_scan(void)
                     keyStruct[i].clickCount = 0;
                     keyStruct[i].releaseCount = 0;
                     keyStruct[i].keyEvent = KEY_SINGLE_CLICK_EVT;
-                    ESP_LOGI(TAG,"key%d single click",i);
                 }
             }
         }
@@ -148,6 +142,7 @@ static void drv_key_scan(void)
     if (drv_key_all_idle())
     {
         drv_key_scan_timer_stop();
+        drv_key_struct_init();
     }
 }
 
