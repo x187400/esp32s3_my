@@ -13,8 +13,9 @@
 #define SPI_TF_CS_PIN       GPIO_NUM_17
 
 /* I2C */       
-#define MAX_I2C_DEV_NUM     2
+#define MAX_I2C_DEV_NUM     3
 #define XL9555_ADDR         0x20
+#define E2PROM_ADDR         0x50
 #define I2C_PORT            0
 #define I2C_INT_PIN         GPIO_NUM_3
 #define I2C_SDA_PIN         GPIO_NUM_48

@@ -7,7 +7,6 @@
 #include "app_key.h"
 #include "proj_cfg.h"
 #include "board.h"
-#include "driver/gpio.h"
 #include "sta_main.h"
 
 static const char *TAG = "Sta_MsgTask";
@@ -29,8 +28,8 @@ static void sta_board_init(void)
 }
 
 /* ==================== 按键事件触发 ==================== */
-static void key0_click_event(void) {}
-static void key0_double_click_event(void) {}
+static void key0_click_event(void) {App_Led_Set(LED_BLUE,LED_OFF);}
+static void key0_double_click_event(void) {App_Led_Set(LED_BLUE,LED_ON);}
 static void key0_long_press_event(void) {App_Beep_Set(BEEP_ON);}
 static void key0_long_press_release_event(void) {App_Beep_Set(BEEP_OFF);}
 
@@ -81,21 +80,26 @@ static void Sta_Msg_Task(Msg_t msg)
 /* ==================== 状态机初始化 ==================== */
 static void sta_init(void)
 {
-    #if defined(STA_XL9555_ENABLE) && (STA_XL9555_ENABLE == 1)
+    #if defined(PERIPHERAL_XL9555_ENABLE) && (PERIPHERAL_XL9555_ENABLE == 1)
         App_XL9555_Init();
     #endif  
 
-    #if defined(STA_LED_ENABLE) && (STA_LED_ENABLE == 1)
+    #if defined(PERIPHERAL_LED_ENABLE) && (PERIPHERAL_LED_ENABLE == 1)
         App_Led_Init();
     #endif 
 
-    #if defined(STA_BEEP_ENABLE) && (STA_BEEP_ENABLE == 1)
+    #if defined(PERIPHERAL_BEEP_ENABLE) && (PERIPHERAL_BEEP_ENABLE == 1)
         App_Beep_Init();
     #endif 
 
-    #if defined(STA_KEY_ENABLE) && (STA_KEY_ENABLE == 1)
+    #if defined(PERIPHERAL_KEY_ENABLE) && (PERIPHERAL_KEY_ENABLE == 1)
         App_Key_Init();
     #endif
+
+    #if defined(PERIPHERAL_E2PROM_ENABLE) && (PERIPHERAL_E2PROM_ENABLE == 1)
+        App_E2pRom_Init();
+    #endif
+    
 }
 
 /* ==================== 状态机主任务 ==================== */
@@ -147,7 +151,6 @@ static void Sta_main(void)
 static void Sta_Task(void *pvParameters)
 {
     sta_board_init();
-    
     sta_init();
     while (1) {
         Msg_t msg;

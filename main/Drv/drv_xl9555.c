@@ -1,4 +1,4 @@
-#include "drv_i2c.h"
+#include "hal_i2c.h"
 #include "proj_cfg.h"
 #include "drv_xl9555.h"
 
@@ -11,7 +11,7 @@ static const char *TAG = "Drv_XL9555";
  */
 void Drv_XL9555_Init(void)
 {
-    Drv_I2C_Add_dev(I2C_ADDR_BIT_LEN_7, XL9555_ADDR, 400000, I2C_XL9555_DEV);
+    Hal_I2C_Add_dev(I2C_ADDR_BIT_LEN_7, XL9555_ADDR, 400000, I2C_XL9555_DEV);
     Drv_XL9555_IO_Cfg(XL9555_AP_INT,XL9555_DIR_OUT);
     Drv_XL9555_IO_Cfg(XL9555_QMA_INT,XL9555_DIR_OUT);
     Drv_XL9555_IO_Cfg(XL9555_BEEP,XL9555_DIR_OUT);
@@ -52,7 +52,7 @@ void Drv_XL9555_IO_Cfg(XL9555_Port_e port, Drv_XL9555_Dir_e dir)
         reg_addr = XL9555_CONFIG_PORT1_REG;
         bit_pos = port - 8;
     }
-    Drv_I2C_Read(I2C_XL9555_DEV, reg_addr, &reg_val, 1, 1000);
+    Hal_I2C_Read(I2C_XL9555_DEV, reg_addr, &reg_val, 1, 1000);
     if(dir == XL9555_DIR_OUT)
     {
         reg_val &= ~(1 << bit_pos); // 设置为输出
@@ -61,7 +61,7 @@ void Drv_XL9555_IO_Cfg(XL9555_Port_e port, Drv_XL9555_Dir_e dir)
     {
         reg_val |= (1 << bit_pos);  // 设置为输入
     }
-    Drv_I2C_Write_Byte(I2C_XL9555_DEV, reg_addr, reg_val, 1000);
+    Hal_I2C_Write(I2C_XL9555_DEV, reg_addr, &reg_val, 1,1000);
 }
 
 
@@ -92,13 +92,13 @@ void Drv_XL9555_Set_Val(XL9555_Port_e port, uint8_t val)
         reg_addr = XL9555_OUTPUT_PORT1_REG;
         bit_pos = port - 8;
     }
-    Drv_I2C_Read(I2C_XL9555_DEV, reg_addr, &reg_val, 1, 1000);
+    Hal_I2C_Read(I2C_XL9555_DEV, reg_addr, &reg_val, 1, 1000);
     if(val == 0)
         reg_val = reg_val & ~(1 << bit_pos);
     else
         reg_val = reg_val | (val << bit_pos);
 
-    Drv_I2C_Write_Byte(I2C_XL9555_DEV, reg_addr, reg_val, 1000);
+    Hal_I2C_Write(I2C_XL9555_DEV, reg_addr, &reg_val, 1, 1000);
 }
 
 /**
@@ -112,11 +112,11 @@ uint8_t Drv_XL9555_Get_Val(XL9555_Port_e port)
     uint8_t bit_pos = (port <= XL9555_LCD_BL) ? port : (port - 8);
     if(port <= XL9555_LCD_BL)
     {
-        Drv_I2C_Read(I2C_XL9555_DEV, XL9555_INPUT_PORT0_REG, &val, 1, 1000);
+        Hal_I2C_Read(I2C_XL9555_DEV, XL9555_INPUT_PORT0_REG, &val, 1, 1000);
     }
     else
     {
-        Drv_I2C_Read(I2C_XL9555_DEV, XL9555_INPUT_PORT1_REG, &val, 1, 1000);
+        Hal_I2C_Read(I2C_XL9555_DEV, XL9555_INPUT_PORT1_REG, &val, 1, 1000);
     }
     return (val & (1 << bit_pos)) ? 1 : 0;
 }

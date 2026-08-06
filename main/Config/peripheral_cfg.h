@@ -1,0 +1,11 @@
+#ifndef __PERIPHERAL_CFG_H__
+#define __PERIPHERAL_CFG_H__
+
+
+#define PERIPHERAL_LED_ENABLE      1
+#define PERIPHERAL_KEY_ENABLE      1
+#define PERIPHERAL_XL9555_ENABLE   1
+#define PERIPHERAL_BEEP_ENABLE     1
+#define PERIPHERAL_E2PROM_ENABLE   1
+
+#endif

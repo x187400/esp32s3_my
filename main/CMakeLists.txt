@@ -3,6 +3,7 @@ set(src_dirs
     "."
     "Board"
     "Drv"
+    "Hal"
     "App"
     "Sta"
     "Rtos"
@@ -12,6 +13,7 @@ set(src_dirs
 set(include_dirs
     "Board"
     "Drv"
+    "Hal"
     "App"
     "Sta"
     "Rtos"
