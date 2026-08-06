@@ -5,6 +5,7 @@
 #include "app_beep.h"
 #include "app_xl9555.h"
 #include "app_key.h"
+#include "app_e2prom.h"
 #include "proj_cfg.h"
 #include "board.h"
 #include "sta_main.h"

@@ -51,13 +51,13 @@ void Hal_I2C_Add_dev(i2c_addr_bit_len_t addr_len, uint16_t addr,uint32_t clk_spe
  * @param len     数据长度
  * @param timeout 超时时间(ms)
  */
-void Hal_I2C_Write(Hal_I2c_Device_t dev, uint8_t reg, const uint8_t *data, size_t len, int xfer_timeout_ms)
+esp_err_t Hal_I2C_Write(Hal_I2c_Device_t dev, uint8_t reg, const uint8_t *data, size_t len, int xfer_timeout_ms)
 {
     esp_err_t ret = ESP_OK;
     uint8_t *write_buf = malloc(len + 1);
     if (write_buf == NULL) {
         ESP_LOGE(TAG, "i2c write %s no mem", hal_i2c_dev_str(dev));
-        return;
+        return ESP_ERR_NO_MEM;
     }
     write_buf[0] = reg;                     /* 首字节 = 字地址 */
     memcpy(write_buf + 1, data, len);       /* 后跟整页数据 */
@@ -66,6 +66,7 @@ void Hal_I2C_Write(Hal_I2c_Device_t dev, uint8_t reg, const uint8_t *data, size_
         ESP_LOGE(TAG, "i2c write %s dev faild :%d", hal_i2c_dev_str(dev), ret);
     }
     free(write_buf);
+    return ret;
 }
 
 /**
@@ -76,7 +77,7 @@ void Hal_I2C_Write(Hal_I2c_Device_t dev, uint8_t reg, const uint8_t *data, size_
  * @param len     读取长度
  * @param timeout 超时时间(ms)
  */
-void Hal_I2C_Read(Hal_I2c_Device_t dev, uint8_t reg, uint8_t *data, size_t len, int xfer_timeout_ms)
+esp_err_t Hal_I2C_Read(Hal_I2c_Device_t dev, uint8_t reg, uint8_t *data, size_t len, int xfer_timeout_ms)
 {
     esp_err_t ret = ESP_OK;
     ret = i2c_master_transmit_receive(i2c_dev_handle[dev], &reg, 1, data, len, xfer_timeout_ms);
@@ -84,4 +85,5 @@ void Hal_I2C_Read(Hal_I2c_Device_t dev, uint8_t reg, uint8_t *data, size_t len, 
     {
         ESP_LOGE(TAG,"i2c read %s dev faild :%d",hal_i2c_dev_str(dev),ret);
     }
+    return ret;
 }

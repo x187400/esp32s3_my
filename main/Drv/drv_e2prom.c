@@ -12,12 +12,12 @@ void Drv_E2pRom_Init(void)
 
 }
 
-void Drv_E2pRom_Write(uint8_t reg, uint8_t *data, size_t len,int xfer_timeout_ms)
+esp_err_t Drv_E2pRom_Write(uint8_t reg, uint8_t *data, size_t len,int xfer_timeout_ms)
 {
-    Hal_I2C_Write(I2C_E2PROM_DEV,reg,data,len,xfer_timeout_ms);
+    return Hal_I2C_Write(I2C_E2PROM_DEV,reg,data,len,xfer_timeout_ms);
 }
 
-void Drv_E2pRom_Read(uint8_t reg, uint8_t *data, size_t len, int xfer_timeout_ms)
+esp_err_t Drv_E2pRom_Read(uint8_t reg, uint8_t *data, size_t len, int xfer_timeout_ms)
 {
-    Hal_I2C_Read(I2C_E2PROM_DEV,reg,data,len,xfer_timeout_ms);
+    return Hal_I2C_Read(I2C_E2PROM_DEV,reg,data,len,xfer_timeout_ms);
 }

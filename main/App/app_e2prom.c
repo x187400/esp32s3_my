@@ -1,3 +1,4 @@
+#include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "proj_cfg.h"
 #include "app_e2prom.h"

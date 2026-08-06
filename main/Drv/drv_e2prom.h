@@ -6,7 +6,7 @@
 #define E2PROM_WRITE_MS     10     /* 每页写周期 */
 
 void Drv_E2pRom_Init(void);
-void Drv_E2pRom_Write(uint8_t reg, uint8_t *data, size_t len,int xfer_timeout_ms);
-void Drv_E2pRom_Read(uint8_t reg, uint8_t *data, size_t len, int xfer_timeout_ms);
+esp_err_t Drv_E2pRom_Write(uint8_t reg, uint8_t *data, size_t len,int xfer_timeout_ms);
+esp_err_t Drv_E2pRom_Read(uint8_t reg, uint8_t *data, size_t len, int xfer_timeout_ms);
 
 #endif
