@@ -22,8 +22,11 @@
 #define I2C_SCL_PIN         GPIO_NUM_45
 
 /* LCD */   
+#define LCD_MAX_BUS_WIDTH   8
+#define LCD_MAX_WIDTH       320
+#define LCD_MAX_HEIGHT      240
 #define LCD_CS_PIN          GPIO_NUM_1
-#define LCD_RS_PIN          GPIO_NUM_2
+#define LCD_DC_PIN          GPIO_NUM_2
 #define LCD_WR_PIN          GPIO_NUM_42
 #define LCD_RD_PIN          GPIO_NUM_41
 
