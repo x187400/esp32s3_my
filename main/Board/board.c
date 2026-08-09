@@ -4,10 +4,10 @@
 
 static const char *TAG = "Board";
 
+/* =============== I2C初始化 =============== */
 i2c_master_bus_handle_t i2c_bus_handle = NULL;
 i2c_int_handler_t i2c_int_handler = NULL;
-
-void I2C_Init(void)
+void Board_I2C_Init(void)
 {
     esp_err_t ret = ESP_OK;
     const i2c_master_bus_config_t i2c_bus_cfg = {
@@ -66,4 +66,17 @@ void I2C_Interupt_Callback_Register(i2c_int_handler_t cb)
         }
         
     }
+}
+
+void Borad_SPI_Init(void)
+{
+    spi_bus_config_t spi_bus_cfg = {
+        .mosi_io_num = SPI_MOSI_PIN,
+        .miso_io_num = SPI_MISO_PIN,
+        .sclk_io_num = SPI_SCK_PIN,
+        .flags = SPICOMMON_BUSFLAG_MASTER | SPICOMMON_BUSFLAG_GPIO_PINS,
+    };
+    spi_bus_initialize(SPI2_HOST,&spi_bus_cfg,SPI_DMA_CH_AUTO);
+
+    
 }

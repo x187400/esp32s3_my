@@ -16,6 +16,8 @@ static const char *hal_i2c_dev_str(Hal_I2c_Device_t dev)
         return "ES8311";
     case I2C_E2PROM_DEV:
         return "E2PROM";
+    case I2C_TOUCH_DEV:
+        return "TOUCH";
     default:
         return "Unknown";
     }
@@ -85,5 +87,41 @@ esp_err_t Hal_I2C_Read(Hal_I2c_Device_t dev, uint8_t reg, uint8_t *data, size_t 
     {
         ESP_LOGE(TAG,"i2c read %s dev faild :%d",hal_i2c_dev_str(dev),ret);
     }
+    return ret;
+}
+
+esp_err_t Hal_I2C_Read_Addr32(Hal_I2c_Device_t dev, uint32_t addr, uint8_t *data, size_t len, int xfer_timeout_ms)
+{
+    /* 应用笔记要求两步独立事务（地址写完后 STOP，再单独读），
+       不能用 transmit_receive（repeated START，很多触摸芯片不支持）：
+       Step1: Start + 写地址 + ADDR[31:24]..ADDR[7:0] + STOP
+       Step2: Start + 读地址 + DATA + STOP */
+    uint8_t addr_buf[4] = { (uint8_t)(addr >> 24), (uint8_t)(addr >> 16),
+                            (uint8_t)(addr >> 8),  (uint8_t)(addr) };
+    esp_err_t ret = i2c_master_transmit(i2c_dev_handle[dev], addr_buf, 4, xfer_timeout_ms);
+    if (ret == ESP_OK) {
+        ret = i2c_master_receive(i2c_dev_handle[dev], data, len, xfer_timeout_ms);
+    }
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "i2c read addr32 %s faild :%d", hal_i2c_dev_str(dev), ret);
+    }
+    return ret;
+}
+
+esp_err_t Hal_I2C_Write_Addr32(Hal_I2c_Device_t dev, uint32_t addr, const uint8_t *data, size_t len, int xfer_timeout_ms)
+{
+    uint8_t *buf = malloc(len + 4);
+    if (buf == NULL) {
+        ESP_LOGE(TAG, "i2c write addr32 %s no mem", hal_i2c_dev_str(dev));
+        return ESP_ERR_NO_MEM;
+    }
+    buf[0] = (uint8_t)(addr >> 24); buf[1] = (uint8_t)(addr >> 16);
+    buf[2] = (uint8_t)(addr >> 8);  buf[3] = (uint8_t)(addr);
+    memcpy(buf + 4, data, len);
+    esp_err_t ret = i2c_master_transmit(i2c_dev_handle[dev], buf, len + 4, xfer_timeout_ms);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "i2c write addr32 %s dev faild :%d", hal_i2c_dev_str(dev), ret);
+    }
+    free(buf);
     return ret;
 }

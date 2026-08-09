@@ -6,8 +6,8 @@
 #include "esp_lcd_panel_ops.h"   // esp_lcd_panel_* 系列
 #include "esp_heap_caps.h"       // MALLOC_CAP_DMA
 #include "driver/gpio.h"         // RD 引脚置高
+#include "esp_lv_adapter.h"
 #include "drv_lcd.h"
-
 
 static esp_lcd_i80_bus_handle_t lcd_bus_handle = NULL;
 static esp_lcd_panel_io_handle_t lcd_io_handle = NULL;
@@ -57,7 +57,7 @@ void Drv_Lcd_Init(void)
             .dc_data_level = 1,
         },
         .flags = {
-            .swap_color_bytes = 1,
+            .swap_color_bytes = 0,   /* 纯蓝显示为绿色说明字节序反了，翻转为 0 测试 */
         },
         .lcd_cmd_bits = 8,
         .lcd_param_bits = 8,
@@ -70,7 +70,7 @@ void Drv_Lcd_Init(void)
 
     esp_lcd_panel_dev_config_t lcd_panel_cfg = {
         .reset_gpio_num = -1,
-        .rgb_ele_order = LCD_RGB_ELEMENT_ORDER_RGB,
+        .rgb_ele_order = LCD_RGB_ELEMENT_ORDER_RGB,   /* ST7789 为 BGR 序，修复颜色错位 */
         .bits_per_pixel = 16,
     };
     ret = esp_lcd_new_panel_st7789(lcd_io_handle, &lcd_panel_cfg,&lcd_panel_handle);
@@ -86,31 +86,32 @@ void Drv_Lcd_Init(void)
     esp_lcd_panel_mirror(lcd_panel_handle, false, true);
     esp_lcd_panel_set_gap(lcd_panel_handle, 0, 0);
     esp_lcd_panel_disp_on_off(lcd_panel_handle, true);
-    
-    // 测试：整屏刷纯蓝色，验证显示链路
-    uint16_t *buf = esp_lcd_i80_alloc_draw_buffer(lcd_io_handle,
-                                                  LCD_MAX_WIDTH * LCD_MAX_HEIGHT * sizeof(uint16_t),
-                                                  MALLOC_CAP_DMA);
-    if (buf == NULL)
-    {
-        ESP_LOGE(TAG, "lcd alloc draw buffer faild");
-        return;
-    }
-    for (size_t i = 0; i < LCD_MAX_WIDTH * LCD_MAX_HEIGHT; i++)
-    {
-        buf[i] = 0x001F;   /* RGB565: 蓝色 */
-    }
-    /* 注意：ST7789 芯片 CASET 上限 239、RASET 上限 319，驱动不自动交换坐标。
-        swap_xy 后 x 对应 CASET(垂直,≤240)、y 对应 RASET(水平,≤320)，
-        因此必须传 (0,0,高,宽)=(240,320)，否则地址窗口超限导致雪花屏。 */
-    ret = esp_lcd_panel_draw_bitmap(lcd_panel_handle, 0, 0, LCD_MAX_WIDTH, LCD_MAX_HEIGHT, buf);
-    if (ret != ESP_OK)
-    {
-        ESP_LOGE(TAG, "draw bitmap faild %x", ret);
-    }
-    else
-    {
-        ESP_LOGI(TAG, "draw bitmap ok, fill blue");
-    }
-    /* draw buffer 无官方释放 API，常驻供后续刷新复用 */
+    /* LCD 硬件初始化到此结束，画面渲染交给 LVGL（见 Drv_Lvgl_Init） */
+}
+
+lv_display_t *Drv_Lvgl_Init(void)
+{
+    /* 1. 初始化 LVGL 适配器（默认 8KB 任务栈，自动创建 LVGL worker 任务） */
+    esp_lv_adapter_config_t cfg = ESP_LV_ADAPTER_DEFAULT_CONFIG();
+    ESP_ERROR_CHECK(esp_lv_adapter_init(&cfg));
+
+    /* 2. 注册显示设备：
+         - i80 接口属于 "OTHER" 类，当前未启用 PSRAM → 用 WITHOUT_PSRAM 配置宏
+         - 分辨率 320x240（Drv_Lcd_Init 里 swap_xy 后的横屏）
+         - 旋转已在 LCD 初始化阶段完成，这里用 ROTATE_0 */
+    esp_lv_adapter_display_config_t disp_cfg =
+        ESP_LV_ADAPTER_DISPLAY_SPI_WITHOUT_PSRAM_DEFAULT_CONFIG(
+            lcd_panel_handle,
+            lcd_io_handle,
+            LCD_MAX_WIDTH,
+            LCD_MAX_HEIGHT,
+            ESP_LV_ADAPTER_ROTATE_0);
+    lv_display_t *disp = esp_lv_adapter_register_display(&disp_cfg);
+    assert(disp != NULL);
+
+    /* 3. 启动适配器任务（内部周期性调用 lv_timer_handler 驱动渲染） */
+    ESP_ERROR_CHECK(esp_lv_adapter_start());
+    /* UI 内容由 App 层在启动后创建（如 App_Ui_Demo_Show），本层只负责硬件与适配器 */
+
+    return disp;
 }

@@ -6,6 +6,9 @@
 #include "app_xl9555.h"
 #include "app_key.h"
 #include "app_e2prom.h"
+#include "drv_sdCard.h"
+#include "drv_lcd.h"
+#include "app_ui_demo.h"
 #include "proj_cfg.h"
 #include "board.h"
 #include "sta_main.h"
@@ -25,7 +28,8 @@ static void sta_i2c_int_handler(void *arg)
 static void sta_board_init(void)
 {
     I2C_Interupt_Callback_Register(sta_i2c_int_handler);
-    I2C_Init();
+    Board_I2C_Init();
+    Borad_SPI_Init();
 }
 
 /* ==================== 按键事件触发 ==================== */
@@ -81,6 +85,8 @@ static void Sta_Msg_Task(Msg_t msg)
 /* ==================== 状态机初始化 ==================== */
 static void sta_init(void)
 {
+    esp_err_t ret = ESP_OK;
+    size_t bytes_total, bytes_free;
     #if defined(PERIPHERAL_XL9555_ENABLE) && (PERIPHERAL_XL9555_ENABLE == 1)
         App_XL9555_Init();
     #endif  
@@ -100,6 +106,11 @@ static void sta_init(void)
     #if defined(PERIPHERAL_E2PROM_ENABLE) && (PERIPHERAL_E2PROM_ENABLE == 1)
         App_E2pRom_Init();
     #endif
+    
+    #if defined(PERIPHERAL_LVGL_ENABLE) && (PERIPHERAL_LVGL_ENABLE == 1)
+        App_Ui_HardWare_Init();
+    #endif
+
     
 }
 
