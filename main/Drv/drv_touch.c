@@ -9,20 +9,13 @@
 
 static const char *TAG = "Drv_Touch";
 
-/* CHSC5432 32 位地址两步读（应用笔记）：写地址 → STOP → 单独读 */
-static esp_err_t drv_chsc_touch_read(uint32_t addr, uint8_t *data, size_t len);
-
 void Drv_Touch_Init(void)
 {
     Hal_I2C_Add_dev(I2C_ADDR_BIT_LEN_7,TOUCH_ADDR,400000,I2C_TOUCH_DEV);
 }
 
-/* CHSC5432 32 位地址两步读（应用笔记）：写地址 → STOP → 单独读 */
-static esp_err_t drv_chsc_touch_read(uint32_t addr, uint8_t *data, size_t len)
+static esp_err_t drv_i2c_touch_read(uint32_t addr, uint8_t *data, size_t len)
 {
-    /* 设备由 Drv_Touch_Init() 里的 Hal_I2C_Add_dev(I2C_TOUCH_DEV) 建立，
-       统一经 Hal_I2C_Read_Addr32 走 32 位地址两步读。
-       注意：CHSC5432 读取长度必须 >= 4 字节。 */
     return Hal_I2C_Read_Addr32(I2C_TOUCH_DEV, addr, data, len, 100);
 }
 
@@ -32,7 +25,7 @@ static esp_err_t drv_chsc5432_read_data(esp_lcd_touch_handle_t tp)
     ESP_RETURN_ON_FALSE(tp != NULL, ESP_ERR_INVALID_ARG, TAG, "invalid tp");
 
     uint8_t buf[CHSC_TOUCH_DATA_LEN];
-    esp_err_t ret = drv_chsc_touch_read(CHSC_TOUCH_DATA_REG, buf, CHSC_TOUCH_DATA_LEN);
+    esp_err_t ret = drv_i2c_touch_read(CHSC_TOUCH_DATA_REG, buf, CHSC_TOUCH_DATA_LEN);
     if (ret != ESP_OK) {
         return ret;
     }
@@ -103,7 +96,7 @@ esp_err_t Drv_Touch_Create(esp_lcd_touch_handle_t *tp)
 
     /* 验证芯片：读 ictype(4字节)，期望 0x05=CHSC5432 */
     uint8_t ictype[4] = {0};
-    if (drv_chsc_touch_read(CHSC_TP_INFO_IC_TYPE, ictype, 4) == ESP_OK) {
+    if (drv_i2c_touch_read(CHSC_TP_INFO_IC_TYPE, ictype, 4) == ESP_OK) {
         ESP_LOGI(TAG, "CHSC ictype=0x%02X (0x05=CHSC5432)", ictype[0]);
     } else {
         ESP_LOGE(TAG, "read ictype failed, check I2C addr/wiring");
@@ -120,8 +113,8 @@ esp_err_t Drv_Touch_Create(esp_lcd_touch_handle_t *tp)
     /* 配置：x_max/y_max 用触摸屏原始范围(竖屏240x320)；
        框架先 mirror 后 swap，故 mirror 作用在 raw_y、再交换到屏幕 X */
     memcpy(&chsc->config, &(esp_lcd_touch_config_t){
-        .x_max = 240,         /* 触摸屏 X 原始范围 0~239 */
-        .y_max = 320,         /* 触摸屏 Y 原始范围 0~319 */
+        .x_max = LCD_MAX_WIDTH,         /* 触摸屏 X 原始范围 0~239 */
+        .y_max = LCD_MAX_HEIGHT,         /* 触摸屏 Y 原始范围 0~319 */
         .rst_gpio_num = GPIO_NUM_NC,
         .int_gpio_num = GPIO_NUM_NC,    /* 无 INT 则轮询 */
         .levels = { .reset = 0, .interrupt = 0 },
