@@ -5,7 +5,7 @@
     "board/esp32s3-builtin.cfg"
   ],
   "idf.port": "/dev/ttyACM0",
-  "idf.currentSetup": "/home/wxw/.espressif/v6.0.2/esp-idf",
+  "idf.currentSetup": "/home/pzh/esp-idf/.espressif/v6.0.2/esp-idf",
   "idf.customExtraVars": {
     "IDF_TARGET": "esp32s3"
   },

@@ -14,6 +14,8 @@
  * ==========================================================================*/
 
 static void btn_event_cb(lv_event_t *e);
+static void fps_timer_cb(lv_timer_t *t);   /* FPS 定时刷新回调 */
+static lv_obj_t *fps_label;                /* FPS 显示标签 */
 
 void App_Ui_HardWare_Init(void)
 {
@@ -126,6 +128,31 @@ void App_Ui_Demo_Show(void)
        事件在 LVGL worker 任务里派发，回调中可直接调用 LVGL API */
     lv_obj_add_event_cb(btn, btn_event_cb, LV_EVENT_CLICKED, NULL);
 
+    /* ===================== 4. FPS 显示（调试用）===================== */
+    esp_lv_adapter_fps_stats_enable(NULL, true);   /* 启用 FPS 统计（内部每 1s 更新窗口） */
+
+    fps_label = lv_label_create(scr);
+    lv_obj_set_style_text_font(fps_label, &lv_font_montserrat_16, 0);
+    lv_obj_set_style_text_color(fps_label, lv_color_hex(0x00FF00), 0);
+    lv_obj_align(fps_label, LV_ALIGN_TOP_RIGHT, -8, 6);
+    lv_label_set_text(fps_label, "FPS: --");
+    lv_timer_create(fps_timer_cb, 500, NULL);      /* 每 500ms 刷新一次标签 */
+
+    /* ===================== 5. 持续动画（FPS 测试用，测完可删）===================== */
+    lv_obj_t *spinner = lv_arc_create(scr);        /* 加载圈：持续旋转，强制每帧重绘 */
+    lv_obj_set_size(spinner, 40, 40);
+    lv_arc_set_rotation(spinner, 0);
+    lv_obj_align(spinner, LV_ALIGN_CENTER, 0, -10);
+
+    lv_anim_t a;
+    lv_anim_init(&a);
+    lv_anim_set_var(&a, spinner);
+    lv_anim_set_values(&a, 0, 360);
+    lv_anim_set_duration(&a, 1000);                /* 1 秒转一圈 */
+    lv_anim_set_repeat_count(&a, LV_ANIM_REPEAT_INFINITE);
+    lv_anim_set_exec_cb(&a, (lv_anim_exec_xcb_t)lv_arc_set_rotation);
+    lv_anim_start(&a);
+
     esp_lv_adapter_unlock();
 }
 
@@ -138,4 +165,15 @@ static void btn_event_cb(lv_event_t *e)
     lv_obj_t *btn = lv_event_get_target(e);
     lv_obj_t *lbl = lv_obj_get_child(btn, 0);   /* 按钮里的 label */
     lv_label_set_text(lbl, "OK!");
+}
+
+/* FPS 定时刷新回调：在 LVGL worker 任务中执行（已持有锁），可安全调用 LVGL API */
+static void fps_timer_cb(lv_timer_t *t)
+{
+    (void)t;
+    uint32_t fps = 0;
+    esp_lv_adapter_get_fps(NULL, &fps);
+    if (fps_label) {
+        lv_label_set_text_fmt(fps_label, "FPS: %u", (unsigned)fps);
+    }
 }
