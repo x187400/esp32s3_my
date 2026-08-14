@@ -4,7 +4,8 @@
 #include "esp_lcd_panel_st7789.h"
 #include "esp_lcd_panel_vendor.h"
 #include "esp_lcd_panel_ops.h"   // esp_lcd_panel_* 系列
-#include "esp_heap_caps.h"       // MALLOC_CAP_DMA
+#include "esp_heap_caps.h"       // MALLOC_CAP_DMA / heap_caps_get_free_size
+#include "esp_memory_utils.h"    // esp_ptr_external_ram
 #include "driver/gpio.h"         // RD 引脚置高
 #include "esp_lv_adapter.h"
 #include "drv_xl9555.h"
@@ -58,7 +59,7 @@ void Drv_Lcd_Init(void)
             .dc_data_level = 1,
         },
         .flags = {
-            .swap_color_bytes = 0,   /* 纯蓝显示为绿色说明字节序反了，翻转为 0 测试 */
+            .swap_color_bytes = 0,
         },
         .lcd_cmd_bits = 8,
         .lcd_param_bits = 8,
@@ -71,7 +72,7 @@ void Drv_Lcd_Init(void)
 
     esp_lcd_panel_dev_config_t lcd_panel_cfg = {
         .reset_gpio_num = -1,
-        .rgb_ele_order = LCD_RGB_ELEMENT_ORDER_RGB,   /* ST7789 为 BGR 序，修复颜色错位 */
+        .rgb_ele_order = LCD_RGB_ELEMENT_ORDER_RGB,
         .bits_per_pixel = 16,
     };
     ret = esp_lcd_new_panel_st7789(lcd_io_handle, &lcd_panel_cfg,&lcd_panel_handle);
@@ -98,9 +99,13 @@ lv_display_t *Drv_Lvgl_Init(void)
     ESP_ERROR_CHECK(esp_lv_adapter_init(&cfg));
 
     /* 2. 注册显示设备：
-         - i80 接口属于 "OTHER" 类，当前未启用 PSRAM → 用 WITHOUT_PSRAM 配置宏
+         - i80 接口属于 "OTHER" 类，已启用 PSRAM → 用 WITH_PSRAM 配置宏（显存分配在 PSRAM）
          - 分辨率 320x240（Drv_Lcd_Init 里 swap_xy 后的横屏）
          - 旋转已在 LCD 初始化阶段完成，这里用 ROTATE_0 */
+    ESP_LOGI(TAG, "[MEM] before register: internal free=%d, psram free=%d",
+             heap_caps_get_free_size(MALLOC_CAP_INTERNAL),
+             heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
+
     esp_lv_adapter_display_config_t disp_cfg =
         ESP_LV_ADAPTER_DISPLAY_SPI_WITH_PSRAM_DEFAULT_CONFIG(
             lcd_panel_handle,
@@ -110,6 +115,16 @@ lv_display_t *Drv_Lvgl_Init(void)
             ESP_LV_ADAPTER_ROTATE_0);
     lv_display_t *disp = esp_lv_adapter_register_display(&disp_cfg);
     assert(disp != NULL);
+
+    /* 显存验证：register 返回即显存已分配完成。
+       对比前后 internal/psram 空闲量，并直接检查 draw buffer 指针是否在 PSRAM */
+    ESP_LOGI(TAG, "[MEM] after register: internal free=%d, psram free=%d",
+             heap_caps_get_free_size(MALLOC_CAP_INTERNAL),
+             heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
+    lv_draw_buf_t *dbuf = lv_display_get_buf_active(disp);
+    if (dbuf && dbuf->data) {
+        ESP_LOGI(TAG, "[MEM] draw buffer addr=%p, in PSRAM=%d", dbuf->data, esp_ptr_external_ram(dbuf->data));
+    }
 
     /* 3. 启动适配器任务（内部周期性调用 lv_timer_handler 驱动渲染） */
     ESP_ERROR_CHECK(esp_lv_adapter_start());
