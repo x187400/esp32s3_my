@@ -7,6 +7,7 @@
 #include "esp_heap_caps.h"       // MALLOC_CAP_DMA
 #include "driver/gpio.h"         // RD 引脚置高
 #include "esp_lv_adapter.h"
+#include "drv_xl9555.h"
 #include "drv_lcd.h"
 
 static esp_lcd_i80_bus_handle_t lcd_bus_handle = NULL;
@@ -87,6 +88,7 @@ void Drv_Lcd_Init(void)
     esp_lcd_panel_set_gap(lcd_panel_handle, 0, 0);
     esp_lcd_panel_disp_on_off(lcd_panel_handle, true);
     /* LCD 硬件初始化到此结束，画面渲染交给 LVGL（见 Drv_Lvgl_Init） */
+    Drv_XL9555_Set_Val(XL9555_LCD_BL,1);
 }
 
 lv_display_t *Drv_Lvgl_Init(void)
@@ -100,7 +102,7 @@ lv_display_t *Drv_Lvgl_Init(void)
          - 分辨率 320x240（Drv_Lcd_Init 里 swap_xy 后的横屏）
          - 旋转已在 LCD 初始化阶段完成，这里用 ROTATE_0 */
     esp_lv_adapter_display_config_t disp_cfg =
-        ESP_LV_ADAPTER_DISPLAY_SPI_WITHOUT_PSRAM_DEFAULT_CONFIG(
+        ESP_LV_ADAPTER_DISPLAY_SPI_WITH_PSRAM_DEFAULT_CONFIG(
             lcd_panel_handle,
             lcd_io_handle,
             LCD_MAX_HEIGHT,

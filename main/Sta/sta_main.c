@@ -7,8 +7,9 @@
 #include "app_key.h"
 #include "app_e2prom.h"
 #include "drv_sdCard.h"
+#include "drv_spiffs.h"
 #include "drv_lcd.h"
-#include "app_ui_demo.h"
+#include "sta_ui.h"
 #include "proj_cfg.h"
 #include "board.h"
 #include "sta_main.h"
@@ -106,9 +107,13 @@ static void sta_init(void)
     #if defined(PERIPHERAL_E2PROM_ENABLE) && (PERIPHERAL_E2PROM_ENABLE == 1)
         App_E2pRom_Init();
     #endif
-    
+
+    #if defined(PERIPHERAL_SPIFFS_ENABLE) && (PERIPHERAL_SPIFFS_ENABLE == 1)
+        Drv_Spiffs_Init();
+    #endif
+
     #if defined(PERIPHERAL_LVGL_ENABLE) && (PERIPHERAL_LVGL_ENABLE == 1)
-        App_Ui_HardWare_Init();
+        Sta_Ui_HardWare_Init();
     #endif
 
     
