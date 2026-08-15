@@ -12,14 +12,14 @@
 #include "esp_log.h"
 
 /* ============================================================================
- * 横屏 (320x240) 双页 UI
+ * 竖屏 (240x320) 双页 UI
  *   一级页（Home）：标题「音乐」→ app_music.png → 底部页面指示条（小圆点）
- *   二级页（Music）：app_music1_component / app_music2_component 两张图（已预缩小）显示
+ *   二级页（Music）：app_music1_component / app_music2_component 两张图（上下排列 contain 缩放）
  *   交互：点击一级页图标进入二级页，点击二级页内容返回一级页（直接切换），指示条高亮当前页
  * ==========================================================================*/
 
-#define UI_HOR_RES   320
-#define UI_VER_RES   240
+#define UI_HOR_RES   240
+#define UI_VER_RES   320
 #define UI_PAGE_NUM  2
 
 /* SPIFFS 图片路径（spiffs/ 目录随固件烧录） */
@@ -116,7 +116,7 @@ static void page_home_create(lv_obj_t *page)
     lv_obj_t *title = lv_label_create(page);
     lv_obj_set_style_text_font(title, &lv_font_source_han_sans_sc_16_cjk, 0);
     lv_obj_set_style_text_color(title, lv_color_hex(0xFFFFFF), 0);
-    lv_label_set_text(title, "音乐");
+    lv_label_set_text(title, "音樂");
     lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 14);
 
     /* 图片：app_music.png（128x128，居中）；点击图标跳转二级页 */
@@ -131,30 +131,35 @@ static void page_home_create(lv_obj_t *page)
     }
 }
 
-/* ---------------- 二级页面：两张组件图（contain 缩放，左右并排） ---------------- */
+/* ---------------- 二级页面：两张组件图（竖屏上下排列，contain 缩放） ---------------- */
 static void page_music_create(lv_obj_t *page)
 {
-    const int slot_w = 150;
-    const int slot_h = 185;
+    const int img_w = 150, img_h = 185;     /* 原始图片尺寸 */
+    const int disp_w = 200, disp_h = 130;   /* 目标显示尺寸（竖屏 240x320 内上下排列） */
+
+    /* contain 等比缩放（LVGL scale: 256=100%） */
+    int32_t sx = disp_w * 256 / img_w;
+    int32_t sy = disp_h * 256 / img_h;
+    int32_t scale = (sx < sy) ? sx : sy;
 
     lv_obj_t *slot1 = lv_obj_create(page);
     lv_obj_remove_style_all(slot1);
-    lv_obj_set_size(slot1, slot_w, slot_h);
-    lv_obj_align(slot1, LV_ALIGN_TOP_LEFT, 10, 18);
+    lv_obj_set_size(slot1, disp_w, disp_h);
+    lv_obj_align(slot1, LV_ALIGN_TOP_MID, 0, 14);
 
     lv_obj_t *slot2 = lv_obj_create(page);
     lv_obj_remove_style_all(slot2);
-    lv_obj_set_size(slot2, slot_w, slot_h);
-    lv_obj_align(slot2, LV_ALIGN_TOP_RIGHT, -10, 18);
+    lv_obj_set_size(slot2, disp_w, disp_h);
+    lv_obj_align(slot2, LV_ALIGN_BOTTOM_MID, 0, -14);
 
     /* 点击二级页内容返回一级页 */
     lv_obj_add_event_cb(slot1, music_page_click_cb, LV_EVENT_CLICKED, NULL);
     lv_obj_add_event_cb(slot2, music_page_click_cb, LV_EVENT_CLICKED, NULL);
 
-    /* 图片已在 PC 端预缩小到显示尺寸（150x185 槽内 contain），1:1 显示不再缩放 */
     if (sta_img_load_from_spiffs(IMG_PATH_COMPONENT1, &s_img_dsc[1])) {
         lv_obj_t *img = lv_image_create(slot1);
         lv_image_set_src(img, &s_img_dsc[1]);
+        lv_image_set_scale(img, scale);
         lv_obj_align(img, LV_ALIGN_CENTER, 0, 0);
     } else {
         ESP_LOGE(TAG, "load %s failed", IMG_PATH_COMPONENT1);
@@ -163,6 +168,7 @@ static void page_music_create(lv_obj_t *page)
     if (sta_img_load_from_spiffs(IMG_PATH_COMPONENT2, &s_img_dsc[2])) {
         lv_obj_t *img = lv_image_create(slot2);
         lv_image_set_src(img, &s_img_dsc[2]);
+        lv_image_set_scale(img, scale);
         lv_obj_align(img, LV_ALIGN_CENTER, 0, 0);
     } else {
         ESP_LOGE(TAG, "load %s failed", IMG_PATH_COMPONENT2);

@@ -84,8 +84,8 @@ void Drv_Lcd_Init(void)
     esp_lcd_panel_reset(lcd_panel_handle);
     esp_lcd_panel_init(lcd_panel_handle);
     esp_lcd_panel_invert_color(lcd_panel_handle, true);   // ST7789 常用
-    esp_lcd_panel_swap_xy(lcd_panel_handle, true);        // 物理竖屏240x320 → 逻辑横屏320x240（i80旋转必须在此做）
-    esp_lcd_panel_mirror(lcd_panel_handle, false, true);
+    esp_lcd_panel_swap_xy(lcd_panel_handle, false);        // 竖屏：不交换 X/Y，逻辑 = 物理 240x320
+    esp_lcd_panel_mirror(lcd_panel_handle, false, false);  // 竖屏默认不镜像（若方向颠倒再调）
     esp_lcd_panel_set_gap(lcd_panel_handle, 0, 0);
     esp_lcd_panel_disp_on_off(lcd_panel_handle, true);
     /* LCD 硬件初始化到此结束，画面渲染交给 LVGL（见 Drv_Lvgl_Init） */
@@ -100,7 +100,7 @@ lv_display_t *Drv_Lvgl_Init(void)
 
     /* 2. 注册显示设备：
          - i80 接口属于 "OTHER" 类，已启用 PSRAM → 用 WITH_PSRAM 配置宏（显存分配在 PSRAM）
-         - 分辨率 320x240（Drv_Lcd_Init 里 swap_xy 后的横屏）
+         - 分辨率 240x320（竖屏，与物理方向一致）
          - 旋转已在 LCD 初始化阶段完成，这里用 ROTATE_0 */
     ESP_LOGI(TAG, "[MEM] before register: internal free=%d, psram free=%d",
              heap_caps_get_free_size(MALLOC_CAP_INTERNAL),
@@ -110,8 +110,8 @@ lv_display_t *Drv_Lvgl_Init(void)
         ESP_LV_ADAPTER_DISPLAY_SPI_WITH_PSRAM_DEFAULT_CONFIG(
             lcd_panel_handle,
             lcd_io_handle,
-            LCD_MAX_HEIGHT,
             LCD_MAX_WIDTH,
+            LCD_MAX_HEIGHT,
             ESP_LV_ADAPTER_ROTATE_0);
     lv_display_t *disp = esp_lv_adapter_register_display(&disp_cfg);
     assert(disp != NULL);

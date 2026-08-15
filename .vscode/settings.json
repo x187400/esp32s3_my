@@ -15,5 +15,8 @@
     "--query-driver=**",
     "--compile-commands-dir=/home/wxw/my_work/esp/my_esp_demo/my_demo/build"
   ],
-  "idf.flashType": "UART"
+  "idf.flashType": "UART",
+  "files.associations": {
+    "format": "c"
+  }
 }

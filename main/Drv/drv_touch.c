@@ -111,7 +111,7 @@ esp_err_t Drv_Touch_Create(esp_lcd_touch_handle_t *tp)
     chsc->data.lock.owner = portMUX_FREE_VAL;
 
     /* 配置：x_max/y_max 用触摸屏原始范围(竖屏240x320)；
-       框架先 mirror 后 swap，故 mirror 作用在 raw_y、再交换到屏幕 X */
+       竖屏：不交换 X/Y、不镜像（与显示方向一致） */
     memcpy(&chsc->config, &(esp_lcd_touch_config_t){
         .x_max = LCD_MAX_WIDTH,         /* 触摸屏 X 原始范围 0~239 */
         .y_max = LCD_MAX_HEIGHT,         /* 触摸屏 Y 原始范围 0~319 */
@@ -119,9 +119,9 @@ esp_err_t Drv_Touch_Create(esp_lcd_touch_handle_t *tp)
         .int_gpio_num = GPIO_NUM_NC,    /* 无 INT 则轮询 */
         .levels = { .reset = 0, .interrupt = 0 },
         .flags = {
-            .swap_xy  = 1,   /* 交换 X/Y */
+            .swap_xy  = 0,   /* 竖屏不交换 X/Y */
             .mirror_x = 0,
-            .mirror_y = 1,   /* 竖屏 Y 镜像 → 横屏 X */
+            .mirror_y = 0,   /* 竖屏不镜像 */
         },
     }, sizeof(esp_lcd_touch_config_t));
 
