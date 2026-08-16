@@ -29,16 +29,6 @@
 
 static const char *TAG = "Sta_Ui";
 
-static lv_obj_t *s_page[UI_PAGE_NUM];   /* 页面容器 */
-static lv_obj_t *s_dot[UI_PAGE_NUM];    /* 页面指示点 */
-static int s_cur_page = 0;              /* 当前页面 */
-
-static void switch_page(int target);    /* 前向声明 */
-static void home_img_click_cb(lv_event_t *e);
-static void music_page_click_cb(lv_event_t *e);
-/* PNG 原始字节缓冲须保持到解码完成，故用 static（PSRAM 优先分配） */
-static lv_image_dsc_t s_img_dsc[3];
-
 /* 从 SPIFFS 读取 PNG 到内存，构造 LVGL 图像描述符（decoder 会自动识别 PNG magic） */
 static bool sta_img_load_from_spiffs(const char *path, lv_image_dsc_t *dsc)
 {
@@ -77,164 +67,13 @@ static bool sta_img_load_from_spiffs(const char *path, lv_image_dsc_t *dsc)
     return true;
 }
 
-/* ---------------- 页面指示条（小圆点） ---------------- */
-static void dots_update(void)
-{
-    for (int i = 0; i < UI_PAGE_NUM; i++) {
-        lv_obj_set_style_bg_color(s_dot[i],
-                                  (i == s_cur_page) ? lv_color_hex(0xFFFFFF)
-                                                    : lv_color_hex(0x666666), 0);
-    }
-}
-
-static void dots_create(lv_obj_t *parent)
-{
-    lv_obj_t *bar = lv_obj_create(parent);
-    lv_obj_remove_style_all(bar);
-    lv_obj_set_size(bar, 60, 16);
-    lv_obj_align(bar, LV_ALIGN_BOTTOM_MID, 0, -8);
-    lv_obj_set_flex_flow(bar, LV_FLEX_FLOW_ROW);
-    lv_obj_set_flex_align(bar, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER,
-                          LV_FLEX_ALIGN_CENTER);
-    lv_obj_set_style_pad_column(bar, 14, 0);
-
-    for (int i = 0; i < UI_PAGE_NUM; i++) {
-        s_dot[i] = lv_obj_create(bar);
-        lv_obj_remove_style_all(s_dot[i]);
-        lv_obj_set_size(s_dot[i], 8, 8);
-        lv_obj_set_style_radius(s_dot[i], LV_RADIUS_CIRCLE, 0);
-        lv_obj_set_style_bg_color(s_dot[i], lv_color_hex(0x666666), 0);
-        lv_obj_set_style_bg_opa(s_dot[i], LV_OPA_COVER, 0);
-    }
-    dots_update();
-}
-
-/* ---------------- 一级页面：标题 + 音乐图标 ---------------- */
-static void page_home_create(lv_obj_t *page)
-{
-    /* 标题：音乐 */
-    lv_obj_t *title = lv_label_create(page);
-    lv_obj_set_style_text_font(title, &lv_font_source_han_sans_sc_16_cjk, 0);
-    lv_obj_set_style_text_color(title, lv_color_hex(0xFFFFFF), 0);
-    lv_label_set_text(title, "音樂");
-    lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 14);
-
-    /* 图片：app_music.png（128x128，居中）；点击图标跳转二级页 */
-    if (sta_img_load_from_spiffs(IMG_PATH_MUSIC, &s_img_dsc[0])) {
-        lv_obj_t *img = lv_image_create(page);
-        lv_image_set_src(img, &s_img_dsc[0]);
-        lv_obj_align(img, LV_ALIGN_CENTER, 0, -6);
-        lv_obj_add_flag(img, LV_OBJ_FLAG_CLICKABLE);
-        lv_obj_add_event_cb(img, home_img_click_cb, LV_EVENT_CLICKED, NULL);
-    } else {
-        ESP_LOGE(TAG, "load %s failed", IMG_PATH_MUSIC);
-    }
-}
-
-/* ---------------- 二级页面：两张组件图（竖屏上下排列，contain 缩放） ---------------- */
-static void page_music_create(lv_obj_t *page)
-{
-    const int img_w = 150, img_h = 185;     /* 原始图片尺寸 */
-    const int disp_w = 200, disp_h = 130;   /* 目标显示尺寸（竖屏 240x320 内上下排列） */
-
-    /* contain 等比缩放（LVGL scale: 256=100%） */
-    int32_t sx = disp_w * 256 / img_w;
-    int32_t sy = disp_h * 256 / img_h;
-    int32_t scale = (sx < sy) ? sx : sy;
-
-    lv_obj_t *slot1 = lv_obj_create(page);
-    lv_obj_remove_style_all(slot1);
-    lv_obj_set_size(slot1, disp_w, disp_h);
-    lv_obj_align(slot1, LV_ALIGN_TOP_MID, 0, 14);
-
-    lv_obj_t *slot2 = lv_obj_create(page);
-    lv_obj_remove_style_all(slot2);
-    lv_obj_set_size(slot2, disp_w, disp_h);
-    lv_obj_align(slot2, LV_ALIGN_BOTTOM_MID, 0, -14);
-
-    /* 点击二级页内容返回一级页 */
-    lv_obj_add_event_cb(slot1, music_page_click_cb, LV_EVENT_CLICKED, NULL);
-    lv_obj_add_event_cb(slot2, music_page_click_cb, LV_EVENT_CLICKED, NULL);
-
-    if (sta_img_load_from_spiffs(IMG_PATH_COMPONENT1, &s_img_dsc[1])) {
-        lv_obj_t *img = lv_image_create(slot1);
-        lv_image_set_src(img, &s_img_dsc[1]);
-        lv_image_set_scale(img, scale);
-        lv_obj_align(img, LV_ALIGN_CENTER, 0, 0);
-    } else {
-        ESP_LOGE(TAG, "load %s failed", IMG_PATH_COMPONENT1);
-    }
-
-    if (sta_img_load_from_spiffs(IMG_PATH_COMPONENT2, &s_img_dsc[2])) {
-        lv_obj_t *img = lv_image_create(slot2);
-        lv_image_set_src(img, &s_img_dsc[2]);
-        lv_image_set_scale(img, scale);
-        lv_obj_align(img, LV_ALIGN_CENTER, 0, 0);
-    } else {
-        ESP_LOGE(TAG, "load %s failed", IMG_PATH_COMPONENT2);
-    }
-}
-
-/* ---------------- 页面切换（直接切换） ---------------- */
-static void switch_page(int target)
-{
-    if (target < 0 || target >= UI_PAGE_NUM || target == s_cur_page) {
-        return;
-    }
-
-    /* 直接切换：只显示目标页，隐藏其他页（两级界面互斥显示，不并排） */
-    for (int i = 0; i < UI_PAGE_NUM; i++) {
-        if (i == target) {
-            lv_obj_remove_flag(s_page[i], LV_OBJ_FLAG_HIDDEN);
-        } else {
-            lv_obj_add_flag(s_page[i], LV_OBJ_FLAG_HIDDEN);
-        }
-    }
-
-    s_cur_page = target;
-    dots_update();
-}
-
-/* 点击一级页图标 → 二级页 */
-static void home_img_click_cb(lv_event_t *e)
-{
-    (void)e;
-    switch_page(1);
-}
-
-/* 点击二级页内容 → 返回一级页 */
-static void music_page_click_cb(lv_event_t *e)
-{
-    (void)e;
-    switch_page(0);
-}
-
 /* 在 LVGL 适配器启动后调用；内部自动加锁 */
 void Sta_Ui_Show(void)
 {
     if (esp_lv_adapter_lock(-1) != ESP_OK) {
         return;
     }
-
-    lv_obj_t *scr = lv_scr_act();
-    lv_obj_set_style_bg_color(scr, lv_color_hex(0x101418), 0);
-
-    /* 创建页面容器：两级界面独立，初始只显示一级页（page[1] 隐藏） */
-    for (int i = 0; i < UI_PAGE_NUM; i++) {
-        s_page[i] = lv_obj_create(scr);
-        lv_obj_remove_style_all(s_page[i]);
-        lv_obj_set_size(s_page[i], UI_HOR_RES, UI_VER_RES);
-        lv_obj_set_pos(s_page[i], 0, 0);
-        if (i != 0) {
-            lv_obj_add_flag(s_page[i], LV_OBJ_FLAG_HIDDEN);
-        }
-    }
-
-    page_home_create(s_page[0]);   /* 一级页 */
-    page_music_create(s_page[1]);  /* 二级页 */
-
-    /* 底部指示条固定在根屏（z 序高于页面） */
-    dots_create(scr);
+    
 
     esp_lv_adapter_unlock();
 }
