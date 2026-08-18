@@ -9,7 +9,7 @@
 #include "drv_sdCard.h"
 #include "drv_spiffs.h"
 #include "drv_lcd.h"
-#include "sta_ui.h"
+#include "sta_ui_home.h"
 #include "proj_cfg.h"
 #include "board.h"
 #include "sta_main.h"
