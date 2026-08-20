@@ -1,7 +1,9 @@
 #include "drv_lcd.h"
 #include "drv_touch.h"
+#include "drv_spiffs.h"
 #include "esp_lv_adapter.h"
 #include "esp_lv_decoder.h"
+#include "sta_ui_app.h"
 #include "sta_ui_home.h"
 
 #include <stdio.h>
@@ -18,12 +20,8 @@
  * ==========================================================================*/
 
 
-/* SPIFFS 图片路径（spiffs/ 目录随固件烧录） */
-#define IMG_PATH_MUSIC      "/spiffs/app_music.png"
-#define IMG_PATH_COMPONENT1 "/spiffs/app_music1_component.png"
-#define IMG_PATH_COMPONENT2 "/spiffs/app_music2_component.png"
 
-static const char *TAG = "Sta_Ui";
+static const char *TAG = "Sta_Ui_Home";
 
 #define CLICK_SLOP  15   /* 判定"点击"的最大位移阈值(像素)，超过视为滑动/拖动 */
 
@@ -67,49 +65,21 @@ static void home_app_click_cb(lv_event_t *e)
     switch (app) {
         case HOME_MUSIC:
             ESP_LOGI(TAG, "点击了音乐页");
+            /* 1. 隐藏整个首页（状态栏/页面/导航栏全收进 homeContainer） */
+            lv_obj_add_flag(staUiStruct.homeContainer, LV_OBJ_FLAG_HIDDEN);
+            /* 2. App 页：首次进入才创建（避免每次点击重复叠图），之后只切换显示 */
+            if (staUiStruct.appPage == NULL) {
+                staUiStruct.appPage = lv_obj_create(staUiStruct.basePage);
+                lv_obj_remove_style_all(staUiStruct.appPage);
+                lv_obj_set_size(staUiStruct.appPage, UI_HOR_RES, UI_VER_RES);
+                lv_obj_set_pos(staUiStruct.appPage, 0, 0);
+                Sta_Ui_Music_App(staUiStruct.appPage);
+            }
+            lv_obj_clear_flag(staUiStruct.appPage, LV_OBJ_FLAG_HIDDEN);
             break;
         default:
             break;
     }
-}
-
-/* 从 SPIFFS 读取 PNG 到内存，构造 LVGL 图像描述符（decoder 会自动识别 PNG magic） */
-static bool sta_img_load_from_spiffs(const char *path, lv_image_dsc_t *dsc)
-{
-    FILE *f = fopen(path, "rb");
-    if (!f) {
-        ESP_LOGE(TAG, "open %s failed", path);
-        return false;
-    }
-    fseek(f, 0, SEEK_END);
-    long sz = ftell(f);
-    fseek(f, 0, SEEK_SET);
-    if (sz <= 0) {
-        fclose(f);
-        return false;
-    }
-
-    uint8_t *buf = heap_caps_malloc(sz, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
-    if (!buf) {
-        buf = malloc(sz);
-    }
-    if (!buf) {
-        fclose(f);
-        return false;
-    }
-    size_t rd = fread(buf, 1, (size_t)sz, f);
-    fclose(f);
-    if (rd != (size_t)sz) {
-        heap_caps_free(buf);
-        return false;
-    }
-
-    memset(dsc, 0, sizeof(*dsc));
-    dsc->header.magic = LV_IMAGE_HEADER_MAGIC; /* 标记为"变量图像"，LVGL 才会走 decoder 解析 */
-    dsc->header.cf = LV_COLOR_FORMAT_ARGB8888; /* 具体格式由解码器解析 */
-    dsc->data = buf;
-    dsc->data_size = (uint32_t)sz;
-    return true;
 }
 
 static void sta_home_struct(lv_obj_t * page)
@@ -157,7 +127,7 @@ static void sta_ui_home_music(lv_obj_t *page)
     lv_obj_add_event_cb(page,home_app_click_cb,LV_EVENT_CLICKED,NULL);   /* 松开判定点击 */
     /* static：dsc 内部指针指向 malloc 的图片数据，需在图片生命周期内保持有效 */
     static lv_image_dsc_t dsc;
-    if (!sta_img_load_from_spiffs(IMG_PATH_MUSIC, &dsc)) {
+    if (!Drv_Spiffs_Load_Image(IMG_PATH_MUSIC, &dsc)) {
         ESP_LOGE(TAG, "load %s failed", IMG_PATH_MUSIC);
         return;
     }
@@ -230,9 +200,15 @@ static void sta_ui_home_navbar(lv_obj_t *page)
 
 static void sta_ui_home(lv_obj_t *page)
 {
-    sta_home_struct(page);
-    sta_ui_home_app(page);
-    sta_ui_home_navbar(page);
+    /* 首页整体根容器：把状态栏/页面/导航栏都收进去，方便整体隐藏/显示 */
+    staUiStruct.homeContainer = lv_obj_create(page);
+    lv_obj_remove_style_all(staUiStruct.homeContainer);
+    lv_obj_set_size(staUiStruct.homeContainer, UI_HOR_RES, UI_VER_RES);
+    lv_obj_set_pos(staUiStruct.homeContainer, 0, 0);
+
+    sta_home_struct(staUiStruct.homeContainer);
+    sta_ui_home_app(staUiStruct.homeContainer);
+    sta_ui_home_navbar(staUiStruct.homeContainer);
 }
 
 /* 在 LVGL 适配器启动后调用；内部自动加锁 */
@@ -246,6 +222,18 @@ void Sta_Ui_Show(void)
     lv_obj_set_style_bg_color(staUiStruct.basePage, lv_color_hex(0x101418), 0);
     sta_ui_home(staUiStruct.basePage);
     esp_lv_adapter_unlock();
+}
+
+/* App 页返回首页：隐藏 App 页容器，显示首页根容器
+ * 说明：在 LVGL 事件回调（如返回按钮点击）中调用，已处于 LVGL 锁内，无需再加锁 */
+void Sta_Ui_Home_Show(void)
+{
+    if (staUiStruct.appPage != NULL) {
+        lv_obj_add_flag(staUiStruct.appPage, LV_OBJ_FLAG_HIDDEN);
+    }
+    if (staUiStruct.homeContainer != NULL) {
+        lv_obj_clear_flag(staUiStruct.homeContainer, LV_OBJ_FLAG_HIDDEN);
+    }
 }
 
 void Sta_Ui_HardWare_Init(void)

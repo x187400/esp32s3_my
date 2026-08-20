@@ -24,13 +24,18 @@ typedef enum
 
 typedef struct
 {
+    lv_obj_t * homeContainer;                     /* 首页整体根容器（状态栏+页面+导航栏） */
     lv_obj_t * homePage[HOME_PAGE_NUM];
     lv_obj_t * navDot[UI_NAVBAR_DOT_NUM];   /* 页面指示圆点（navDot[0]=最左） */
     lv_obj_t * basePage;
+    lv_obj_t * appPage;                     /* App 页容器（点击进入后显示，首次创建复用） */
 }Sta_Ui_t;
 
 
 /* 横屏双页 UI：一级页(标题+图片+指示条) / 二级页(两张组件图)，滑动切换 */
 void Sta_Ui_Show(void);
 void Sta_Ui_HardWare_Init(void);
+
+/* App 页返回首页：隐藏 App 页容器，显示首页根容器（在 LVGL 事件回调中调用，已持有锁） */
+void Sta_Ui_Home_Show(void);
 #endif
